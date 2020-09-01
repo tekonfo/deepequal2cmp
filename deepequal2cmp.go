@@ -9,23 +9,8 @@ import (
 	"go/parser"
 	"go/token"
 
-	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/go/ast/inspector"
 )
-
-const doc = "deepequal2cmp is ..."
-
-// Analyzer is ...
-var Analyzer = &analysis.Analyzer{
-	Name: "deepequal2cmp",
-	Doc:  doc,
-	Run:  run,
-	Requires: []*analysis.Analyzer{
-		inspect.Analyzer,
-	},
-}
 
 func detectDeepEqual(n *ast.IfStmt) bool {
 	unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
@@ -193,29 +178,7 @@ func deepEqual2cmp(n ast.Node) error {
 	return nil
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-
-	nodeFilter := []ast.Node{
-		(*ast.IfStmt)(nil),
-	}
-
-	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		switch n := n.(type) {
-		case *ast.IfStmt:
-			// DeepEqualの検知
-			isUsedDeepEqual := detectDeepEqual(n)
-			if !isUsedDeepEqual {
-				return
-			}
-
-			_ = deepEqual2cmp(n)
-		}
-	})
-
-	return nil, nil
-}
-
+// Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
 func Rewrite() {
 	fs := token.NewFileSet()
 	f, err := parser.ParseFile(fs, "testdata/src/a/a_test.go", nil, 0)
@@ -238,5 +201,4 @@ func Rewrite() {
 	})
 
 	showBuf(f)
-
 }
