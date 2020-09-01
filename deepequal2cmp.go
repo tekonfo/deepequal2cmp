@@ -54,8 +54,13 @@ func showBuf(n interface{}) {
 	fmt.Println(buf1.String())
 }
 
-// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを
+// if _ = f(); !reflect.DeepEqual(m1, m2) { ← これを
+// 	fmt.Printf("f() = %v, want %v", m1, m2)
+// }
+
 // if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
+// 	fmt.Printf("f() differs: (-got +want)\n%s", diff)
+// }
 func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 	d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
 		switch cr.Name() {
@@ -86,6 +91,25 @@ func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 					Op: token.NEQ,
 					X:  ast.NewIdent("diff"),
 					Y:  &ast.BasicLit{Kind: token.STRING, Value: "\"\""},
+				},
+			)
+		case "Body":
+			cr.Replace(
+				&ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: &ast.SelectorExpr{
+									X:   ast.NewIdent("fmt"),
+									Sel: ast.NewIdent("Printf"),
+								},
+								Args: []ast.Expr{
+									&ast.BasicLit{Kind: token.STRING, Value: "\"f() differs: (-got +want)\\n%s\""},
+									ast.NewIdent("diff"),
+								},
+							},
+						},
+					},
 				},
 			)
 		}

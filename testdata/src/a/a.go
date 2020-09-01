@@ -14,8 +14,7 @@ func f() person {
 	m1 := 1
 	m2 := 1
 
-	if got := f(); !reflect.DeepEqual(m1, m2) { // want "DeepEqual is used"
-		fmt.Println(got)
+	if _ = f(); !reflect.DeepEqual(m1, m2) { // want "DeepEqual is used"
 		fmt.Printf("f() = %v, want %v", m1, m2)
 	}
 
