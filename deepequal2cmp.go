@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
+	"go/parser"
 	"go/token"
 
 	"golang.org/x/tools/go/analysis"
@@ -181,4 +182,29 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	})
 
 	return nil, nil
+}
+
+func Rewrite() {
+	fs := token.NewFileSet()
+	f, err := parser.ParseFile(fs, "testdata/src/a/a.go", nil, 0)
+	if err != nil {
+		panic(err)
+	}
+
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.IfStmt:
+			// DeepEqualの検知
+			isUsedDeepEqual := detectDeepEqual(n)
+			if !isUsedDeepEqual {
+				return true
+			}
+			deepEqual2cmp(n)
+		}
+		// falseを返すと子ノードの探索をしない
+		return true
+	})
+
+	showBuf(f)
+
 }
