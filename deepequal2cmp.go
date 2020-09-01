@@ -24,14 +24,26 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	nodeFilter := []ast.Node{
-		(*ast.CallExpr)(nil),
+		(*ast.IfStmt)(nil),
 	}
 
+	// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを検知したい
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
-		case *ast.CallExpr:
-			f := n.Fun.(*ast.SelectorExpr)
-			if f.Sel.Name == "DeepEqual" {
+		case *ast.IfStmt:
+			unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
+			if !ok {
+				return
+			}
+			callExpr, ok := unaryExpr.X.(*ast.CallExpr)
+			if !ok {
+				return
+			}
+			selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return
+			}
+			if selectorExpr.Sel.Name == "DeepEqual" {
 				pass.Reportf(n.Pos(), "DeepEqual is used")
 			}
 		}
