@@ -44,6 +44,28 @@ func detectDeepEqual(n *ast.IfStmt) bool {
 	return false
 }
 
+func showBuf(n interface{}) {
+	fset := token.NewFileSet()
+	var buf1 bytes.Buffer
+	err := format.Node(&buf1, fset, n)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(buf1.String())
+}
+
+func deepEqual2cmp(n ast.Node) (ast.Node, error) {
+	d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
+		switch cr.Name() {
+		case "Cond":
+			cr.Replace(&ast.UnaryExpr{Op: token.NOT, X: ast.NewIdent("true")})
+		}
+		return true
+	}, nil)
+
+	return d, nil
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
@@ -62,35 +84,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				return
 			}
 
-			// // DeepEqualをtrue
-			// unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
-			// if !ok {
-			// 	return
-			// }
+			showBuf(n)
 
-			fset := token.NewFileSet()
-			var buf1 bytes.Buffer
-			err := format.Node(&buf1, fset, n)
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println(buf1.String())
+			d, _ := deepEqual2cmp(n)
 
-			d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
-				switch cr.Name() {
-				case "Cond":
-					cr.Replace(&ast.UnaryExpr{Op: token.NOT, X: ast.NewIdent("true")})
-				}
-				return true
-			}, nil)
-
-			fset = token.NewFileSet()
-			var buf2 bytes.Buffer
-			err = format.Node(&buf2, fset, d)
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println(buf2.String())
+			showBuf(d)
 		}
 	})
 
