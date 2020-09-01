@@ -76,7 +76,7 @@ func showBuf(n interface{}) {
 }
 
 // if diff := cmp.Diff(m1, m2); diff != "" の中の diff := cmp.Diff(m1, m2)の部分を作成
-func initNode(firstArg ast.Node, secondArg ast.Node) ast.Node {
+func initNode(firstArg ast.Node, secondArg ast.Node) ast.Stmt {
 	return &ast.AssignStmt{
 		Lhs: []ast.Expr{
 			ast.NewIdent("diff"),
@@ -98,7 +98,7 @@ func initNode(firstArg ast.Node, secondArg ast.Node) ast.Node {
 }
 
 // if diff := cmp.Diff(m1, m2); diff != "" の中の diff != ""の部分を作成
-func condNode() ast.Node {
+func condNode() ast.Expr {
 	return &ast.BinaryExpr{
 		Op: token.NEQ,
 		X:  ast.NewIdent("diff"),
@@ -107,7 +107,7 @@ func condNode() ast.Node {
 }
 
 // fmt.Printf("f() differs: (-got +want)\n%s", diff)を作成
-func bodyNode() ast.Node {
+func bodyNode() *ast.BlockStmt {
 	return &ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ExprStmt{
@@ -135,6 +135,7 @@ func execFuncNode(node *ast.IfStmt) (ast.Node, error) {
 	return assignStmt, nil
 }
 
+// !reflect.DeepEqual(m1, m2) で利用されているm1, m2を取得する
 func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 	unaryExpr, ok := node.Cond.(*ast.UnaryExpr)
 	if !ok {
@@ -161,52 +162,31 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 // }
 func deepEqual2cmp(n ast.Node) error {
 	astutil.Apply(n, func(cr *astutil.Cursor) bool {
-		// currentNodeがifstmtかどうかを確認
 		n := cr.Node()
 		ifStmt, ok := n.(*ast.IfStmt)
 		if !ok {
 			return true
 		}
 
-		isUsedCmpDiff := detectDeepEqual(ifStmt)
-		if isUsedCmpDiff {
-			insertStmt, _ := execFuncNode(ifStmt)
-			// cr.InsertBefore(insertStmt)
-			showBuf(insertStmt)
-			return true
-		}
-
-		// parentがifstmtかどうかを確認
-		pNode := cr.Parent()
-		pIfStmt, ok := pNode.(*ast.IfStmt)
-		if !ok {
-			return true
-		}
-
-		isUsedDeepEqual := detectDeepEqual(pIfStmt)
+		isUsedDeepEqual := detectDeepEqual(ifStmt)
 		if !isUsedDeepEqual {
 			return true
 		}
 
-		arg1, arg2, err := getArg(pIfStmt)
+		arg1, arg2, err := getArg(ifStmt)
 		if err != nil {
 			panic(err)
 		}
 
-		switch cr.Name() {
-		case "Init":
-			cr.Replace(
-				initNode(arg1, arg2),
-			)
-		case "Cond":
-			cr.Replace(
-				condNode(),
-			)
-		case "Body":
-			cr.Replace(
-				bodyNode(),
-			)
+		newIfStmt := &ast.IfStmt{
+			Init: initNode(arg1, arg2),
+			Cond: condNode(),
+			Body: bodyNode(),
 		}
+
+		// FIXME: この処理を加えても、コードが書き換わらない
+		cr.Replace(newIfStmt)
+
 		return true
 	}, nil)
 
