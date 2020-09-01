@@ -20,6 +20,25 @@ var Analyzer = &analysis.Analyzer{
 	},
 }
 
+func detectDeepEqual(n *ast.IfStmt) bool {
+	unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
+	if !ok {
+		return false
+	}
+	callExpr, ok := unaryExpr.X.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	if selectorExpr.Sel.Name == "DeepEqual" {
+		return true
+	}
+	return false
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
@@ -31,21 +50,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.IfStmt:
-			unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
-			if !ok {
+			// DeepEqualの検知
+			isUsedDeepEqual := detectDeepEqual(n)
+			if !isUsedDeepEqual {
 				return
 			}
-			callExpr, ok := unaryExpr.X.(*ast.CallExpr)
-			if !ok {
-				return
-			}
-			selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return
-			}
-			if selectorExpr.Sel.Name == "DeepEqual" {
-				pass.Reportf(n.Pos(), "DeepEqual is used")
-			}
+
+			// DeepEqualをgo-cmpに書き換える
+
 		}
 	})
 
