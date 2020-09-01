@@ -165,14 +165,22 @@ func deepEqual2cmp(n ast.Node) error {
 			panic(err)
 		}
 
+		s, err := execFuncNode(ifStmt)
+		// TODO: error処理
+		if err != nil {
+
+		}
+
 		newIfStmt := &ast.IfStmt{
 			Init: initNode(arg1, arg2),
 			Cond: condNode(),
 			Body: bodyNode(),
 		}
 
-		// FIXME: この処理を加えても、コードが書き換わらない
 		cr.Replace(newIfStmt)
+		if s != nil {
+			cr.InsertBefore(s)
+		}
 
 		return true
 	}, nil)
