@@ -55,7 +55,7 @@ func showBuf(n interface{}) {
 }
 
 // if diff := cmp.Diff(m1, m2); diff != "" の中の diff := cmp.Diff(m1, m2)の部分を作成
-func initNode() ast.Node {
+func initNode(firstArgName string, secondArgName string) ast.Node {
 	return &ast.AssignStmt{
 		Lhs: []ast.Expr{
 			ast.NewIdent("diff"),
@@ -68,8 +68,8 @@ func initNode() ast.Node {
 					Sel: ast.NewIdent("Diff"),
 				},
 				Args: []ast.Expr{
-					ast.NewIdent("m1"),
-					ast.NewIdent("m2"),
+					ast.NewIdent(firstArgName),
+					ast.NewIdent(secondArgName),
 				},
 			},
 		},
@@ -105,6 +105,19 @@ func bodyNode() ast.Node {
 	}
 }
 
+func getArg(node *ast.IfStmt) (string, string) {
+	unaryExpr, ok := node.Cond.(*ast.UnaryExpr)
+	if !ok {
+		return "a", "b"
+	}
+	callExpr, ok := unaryExpr.X.(*ast.CallExpr)
+	if !ok {
+		return "a", "b"
+	}
+	args := callExpr.Args
+	return args[0].(*ast.Ident).Name, args[1].(*ast.Ident).Name
+}
+
 // if _ = f(); !reflect.DeepEqual(m1, m2) { ← これを
 // 	fmt.Printf("f() = %v, want %v", m1, m2)
 // }
@@ -114,10 +127,19 @@ func bodyNode() ast.Node {
 // }
 func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 	d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
+		// ifstmtかどうかを確認
+		pNode := cr.Parent()
+		pIfStmt, ok := pNode.(*ast.IfStmt)
+		if !ok {
+			return true
+		}
+
+		arg1, arg2 := getArg(pIfStmt)
+
 		switch cr.Name() {
 		case "Init":
 			cr.Replace(
-				initNode(),
+				initNode(arg1, arg2),
 			)
 		case "Cond":
 			cr.Replace(
