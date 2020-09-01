@@ -1,10 +1,15 @@
 package deepequal2cmp
 
 import (
+	"bytes"
+	"fmt"
 	"go/ast"
+	"go/format"
+	"go/token"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
+	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/ast/inspector"
 )
 
@@ -46,7 +51,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.IfStmt)(nil),
 	}
 
-	// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを検知したい
+	// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを
+	// if got := f(); true { ← これに書き換える
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.IfStmt:
@@ -56,8 +62,35 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				return
 			}
 
-			// DeepEqualをgo-cmpに書き換える
+			// // DeepEqualをtrue
+			// unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
+			// if !ok {
+			// 	return
+			// }
 
+			fset := token.NewFileSet()
+			var buf1 bytes.Buffer
+			err := format.Node(&buf1, fset, n)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(buf1.String())
+
+			d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
+				switch cr.Name() {
+				case "Cond":
+					cr.Replace(&ast.UnaryExpr{Op: token.NOT, X: ast.NewIdent("true")})
+				}
+				return true
+			}, nil)
+
+			fset = token.NewFileSet()
+			var buf2 bytes.Buffer
+			err = format.Node(&buf2, fset, d)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(buf2.String())
 		}
 	})
 
