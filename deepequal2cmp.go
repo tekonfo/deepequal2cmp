@@ -24,14 +24,15 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	nodeFilter := []ast.Node{
-		(*ast.Ident)(nil),
+		(*ast.CallExpr)(nil),
 	}
 
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
-		case *ast.Ident:
-			if n.Name == "gopher" {
-				pass.Reportf(n.Pos(), "identifier is gopher")
+		case *ast.CallExpr:
+			f := n.Fun.(*ast.SelectorExpr)
+			if f.Sel.Name == "DeepEqual" {
+				pass.Reportf(n.Pos(), "DeepEqual is used")
 			}
 		}
 	})
