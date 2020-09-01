@@ -20,3 +20,7 @@ func f() person {
 
 	return person{}
 }
+
+func ff() (person, person, error) {
+	return person{}, person{}, nil
+}
