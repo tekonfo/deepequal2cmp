@@ -54,11 +54,40 @@ func showBuf(n interface{}) {
 	fmt.Println(buf1.String())
 }
 
+// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを
+// if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
 func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 	d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
 		switch cr.Name() {
+		case "Init":
+			cr.Replace(
+				&ast.AssignStmt{
+					Lhs: []ast.Expr{
+						ast.NewIdent("diff"),
+					},
+					Tok: token.DEFINE,
+					Rhs: []ast.Expr{
+						&ast.CallExpr{
+							Fun: &ast.SelectorExpr{
+								X:   ast.NewIdent("cmp"),
+								Sel: ast.NewIdent("Diff"),
+							},
+							Args: []ast.Expr{
+								ast.NewIdent("m1"),
+								ast.NewIdent("m2"),
+							},
+						},
+					},
+				},
+			)
 		case "Cond":
-			cr.Replace(&ast.UnaryExpr{Op: token.NOT, X: ast.NewIdent("true")})
+			cr.Replace(
+				&ast.BinaryExpr{
+					Op: token.NEQ,
+					X:  ast.NewIdent("diff"),
+					Y:  &ast.BasicLit{Kind: token.STRING, Value: "\"\""},
+				},
+			)
 		}
 		return true
 	}, nil)
@@ -73,8 +102,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.IfStmt)(nil),
 	}
 
-	// if got := f(); !reflect.DeepEqual(m1, m2) { ← これを
-	// if got := f(); true { ← これに書き換える
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.IfStmt:
