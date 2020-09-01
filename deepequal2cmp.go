@@ -102,6 +102,7 @@ func bodyNode() *ast.BlockStmt {
 						Sel: ast.NewIdent("Printf"),
 					},
 					Args: []ast.Expr{
+						// TODO: ここのf()は動的な値なのであとで書き換える必要がある
 						&ast.BasicLit{Kind: token.STRING, Value: "\"f() differs: (-got +want)\\n%s\""},
 						ast.NewIdent("diff"),
 					},
@@ -111,6 +112,7 @@ func bodyNode() *ast.BlockStmt {
 	}
 }
 
+// got = f(); はifStmtの前に記述しなければならないので、その箇所を取得
 func execFuncNode(node *ast.IfStmt) (ast.Node, error) {
 	assignStmt, ok := node.Init.(*ast.AssignStmt)
 	if !ok {
@@ -186,19 +188,7 @@ func Rewrite() {
 		panic(err)
 	}
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.IfStmt:
-			// DeepEqualの検知
-			isUsedDeepEqual := detectDeepEqual(n)
-			if !isUsedDeepEqual {
-				return true
-			}
-			deepEqual2cmp(n)
-		}
-		// falseを返すと子ノードの探索をしない
-		return true
-	})
+	deepEqual2cmp(f)
 
 	showBuf(f)
 }
