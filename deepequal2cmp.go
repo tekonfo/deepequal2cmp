@@ -54,6 +54,57 @@ func showBuf(n interface{}) {
 	fmt.Println(buf1.String())
 }
 
+// if diff := cmp.Diff(m1, m2); diff != "" の中の diff := cmp.Diff(m1, m2)の部分を作成
+func initNode() ast.Node {
+	return &ast.AssignStmt{
+		Lhs: []ast.Expr{
+			ast.NewIdent("diff"),
+		},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{
+			&ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("cmp"),
+					Sel: ast.NewIdent("Diff"),
+				},
+				Args: []ast.Expr{
+					ast.NewIdent("m1"),
+					ast.NewIdent("m2"),
+				},
+			},
+		},
+	}
+}
+
+// if diff := cmp.Diff(m1, m2); diff != "" の中の diff != ""の部分を作成
+func condNode() ast.Node {
+	return &ast.BinaryExpr{
+		Op: token.NEQ,
+		X:  ast.NewIdent("diff"),
+		Y:  &ast.BasicLit{Kind: token.STRING, Value: "\"\""},
+	}
+}
+
+// fmt.Printf("f() differs: (-got +want)\n%s", diff)を作成
+func bodyNode() ast.Node {
+	return &ast.BlockStmt{
+		List: []ast.Stmt{
+			&ast.ExprStmt{
+				X: &ast.CallExpr{
+					Fun: &ast.SelectorExpr{
+						X:   ast.NewIdent("fmt"),
+						Sel: ast.NewIdent("Printf"),
+					},
+					Args: []ast.Expr{
+						&ast.BasicLit{Kind: token.STRING, Value: "\"f() differs: (-got +want)\\n%s\""},
+						ast.NewIdent("diff"),
+					},
+				},
+			},
+		},
+	}
+}
+
 // if _ = f(); !reflect.DeepEqual(m1, m2) { ← これを
 // 	fmt.Printf("f() = %v, want %v", m1, m2)
 // }
@@ -66,51 +117,15 @@ func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 		switch cr.Name() {
 		case "Init":
 			cr.Replace(
-				&ast.AssignStmt{
-					Lhs: []ast.Expr{
-						ast.NewIdent("diff"),
-					},
-					Tok: token.DEFINE,
-					Rhs: []ast.Expr{
-						&ast.CallExpr{
-							Fun: &ast.SelectorExpr{
-								X:   ast.NewIdent("cmp"),
-								Sel: ast.NewIdent("Diff"),
-							},
-							Args: []ast.Expr{
-								ast.NewIdent("m1"),
-								ast.NewIdent("m2"),
-							},
-						},
-					},
-				},
+				initNode(),
 			)
 		case "Cond":
 			cr.Replace(
-				&ast.BinaryExpr{
-					Op: token.NEQ,
-					X:  ast.NewIdent("diff"),
-					Y:  &ast.BasicLit{Kind: token.STRING, Value: "\"\""},
-				},
+				condNode(),
 			)
 		case "Body":
 			cr.Replace(
-				&ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: &ast.SelectorExpr{
-									X:   ast.NewIdent("fmt"),
-									Sel: ast.NewIdent("Printf"),
-								},
-								Args: []ast.Expr{
-									&ast.BasicLit{Kind: token.STRING, Value: "\"f() differs: (-got +want)\\n%s\""},
-									ast.NewIdent("diff"),
-								},
-							},
-						},
-					},
-				},
+				bodyNode(),
 			)
 		}
 		return true
