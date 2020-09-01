@@ -2,6 +2,7 @@ package deepequal2cmp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -56,7 +57,7 @@ func showBuf(n interface{}) {
 }
 
 // if diff := cmp.Diff(m1, m2); diff != "" の中の diff := cmp.Diff(m1, m2)の部分を作成
-func initNode(firstArgName string, secondArgName string) ast.Node {
+func initNode(firstArg ast.Node, secondArg ast.Node) ast.Node {
 	return &ast.AssignStmt{
 		Lhs: []ast.Expr{
 			ast.NewIdent("diff"),
@@ -69,8 +70,8 @@ func initNode(firstArgName string, secondArgName string) ast.Node {
 					Sel: ast.NewIdent("Diff"),
 				},
 				Args: []ast.Expr{
-					ast.NewIdent(firstArgName),
-					ast.NewIdent(secondArgName),
+					firstArg.(ast.Expr),
+					secondArg.(ast.Expr),
 				},
 			},
 		},
@@ -106,17 +107,21 @@ func bodyNode() ast.Node {
 	}
 }
 
-func getArg(node *ast.IfStmt) (string, string) {
+func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 	unaryExpr, ok := node.Cond.(*ast.UnaryExpr)
 	if !ok {
-		return "a", "b"
+		return nil, nil, errors.New("fail unaryExpr cast")
 	}
 	callExpr, ok := unaryExpr.X.(*ast.CallExpr)
 	if !ok {
-		return "a", "b"
+		return nil, nil, errors.New("fail callExpr cast")
 	}
 	args := callExpr.Args
-	return args[0].(*ast.Ident).Name, args[1].(*ast.Ident).Name
+	if len(args) != 2 {
+		return nil, nil, errors.New("invalid args number")
+	}
+
+	return args[0], args[1], nil
 }
 
 // if _ = f(); !reflect.DeepEqual(m1, m2) { ← これを
@@ -126,8 +131,8 @@ func getArg(node *ast.IfStmt) (string, string) {
 // if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
 // 	fmt.Printf("f() differs: (-got +want)\n%s", diff)
 // }
-func deepEqual2cmp(n ast.Node) (ast.Node, error) {
-	d := astutil.Apply(n, func(cr *astutil.Cursor) bool {
+func deepEqual2cmp(n ast.Node) error {
+	astutil.Apply(n, func(cr *astutil.Cursor) bool {
 		// ifstmtかどうかを確認
 		pNode := cr.Parent()
 		pIfStmt, ok := pNode.(*ast.IfStmt)
@@ -135,7 +140,15 @@ func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 			return true
 		}
 
-		arg1, arg2 := getArg(pIfStmt)
+		isUsedDeepEqual := detectDeepEqual(pIfStmt)
+		if !isUsedDeepEqual {
+			return false
+		}
+
+		arg1, arg2, err := getArg(pIfStmt)
+		if err != nil {
+			panic(err)
+		}
 
 		switch cr.Name() {
 		case "Init":
@@ -154,7 +167,7 @@ func deepEqual2cmp(n ast.Node) (ast.Node, error) {
 		return true
 	}, nil)
 
-	return d, nil
+	return nil
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -173,11 +186,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				return
 			}
 
-			showBuf(n)
-
-			d, _ := deepEqual2cmp(n)
-
-			showBuf(d)
+			_ = deepEqual2cmp(n)
 		}
 	})
 
@@ -186,7 +195,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 func Rewrite() {
 	fs := token.NewFileSet()
-	f, err := parser.ParseFile(fs, "testdata/src/a/a.go", nil, 0)
+	f, err := parser.ParseFile(fs, "testdata/src/a/a_test.go", nil, 0)
 	if err != nil {
 		panic(err)
 	}
