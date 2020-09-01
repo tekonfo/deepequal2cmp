@@ -46,6 +46,25 @@ func detectDeepEqual(n *ast.IfStmt) bool {
 	return false
 }
 
+func detectCmpDiff(n *ast.IfStmt) bool {
+	assignStmt, ok := n.Init.(*ast.AssignStmt)
+	if !ok {
+		return false
+	}
+	callExpr, ok := assignStmt.Rhs[0].(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	if selectorExpr.X.(*ast.Ident).Name == "cmp" && selectorExpr.Sel.Name == "Diff" {
+		return true
+	}
+	return false
+}
+
 func showBuf(n interface{}) {
 	fset := token.NewFileSet()
 	var buf1 bytes.Buffer
@@ -107,6 +126,15 @@ func bodyNode() ast.Node {
 	}
 }
 
+func execFuncNode(node *ast.IfStmt) (ast.Node, error) {
+	assignStmt, ok := node.Init.(*ast.AssignStmt)
+	if !ok {
+		return nil, errors.New("cast error")
+	}
+
+	return assignStmt, nil
+}
+
 func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 	unaryExpr, ok := node.Cond.(*ast.UnaryExpr)
 	if !ok {
@@ -133,7 +161,22 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 // }
 func deepEqual2cmp(n ast.Node) error {
 	astutil.Apply(n, func(cr *astutil.Cursor) bool {
-		// ifstmtかどうかを確認
+		// currentNodeがifstmtかどうかを確認
+		n := cr.Node()
+		ifStmt, ok := n.(*ast.IfStmt)
+		if !ok {
+			return true
+		}
+
+		isUsedCmpDiff := detectDeepEqual(ifStmt)
+		if isUsedCmpDiff {
+			insertStmt, _ := execFuncNode(ifStmt)
+			// cr.InsertBefore(insertStmt)
+			showBuf(insertStmt)
+			return true
+		}
+
+		// parentがifstmtかどうかを確認
 		pNode := cr.Parent()
 		pIfStmt, ok := pNode.(*ast.IfStmt)
 		if !ok {
@@ -142,7 +185,7 @@ func deepEqual2cmp(n ast.Node) error {
 
 		isUsedDeepEqual := detectDeepEqual(pIfStmt)
 		if !isUsedDeepEqual {
-			return false
+			return true
 		}
 
 		arg1, arg2, err := getArg(pIfStmt)
