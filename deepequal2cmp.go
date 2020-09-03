@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
+	"go/parser"
 	"go/token"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/go/packages"
 )
 
 func detectDeepEqual(n *ast.IfStmt) bool {
@@ -241,50 +242,47 @@ func Rewrite(dirPath string) {
 	// ディレクトリ以下の全testファイルを取得する
 	files := findTestFiles(dirPath)
 
-	mode := packages.NeedSyntax // 構文解析まで
-	cfg := &packages.Config{Mode: mode, Tests: true}
-	pkgs, err := packages.Load(cfg, files...)
-	if err != nil { /* エラー処理 */
-		fmt.Println("error")
-		panic(err)
-	}
-	if packages.PrintErrors(pkgs) > 0 { /* エラー処理 */
-		fmt.Println("error error")
-		panic("error")
-	}
+	// mode := packages.NeedSyntax // 構文解析まで
+	// cfg := &packages.Config{Mode: mode, Tests: true}
+	// pkgs, err := packages.Load(cfg, files...)
+	// if err != nil { /* エラー処理 */
+	// 	fmt.Println("error")
+	// 	panic(err)
+	// }
+	// if packages.PrintErrors(pkgs) > 0 { /* エラー処理 */
+	// 	fmt.Println("error error")
+	// 	panic("error")
+	// }
 
-	for _, pkg := range pkgs {
-		for _, f := range pkg.Syntax {
-			// mainパッケージは除外
-			if f.Name.Name == "main" {
-				continue
-			}
+	// for _, pkg := range pkgs {
+	// 	for _, f := range pkg.Syntax {
+	// 		// mainパッケージは除外
+	// 		if f.Name.Name == "main" {
+	// 			continue
+	// 		}
 
-			deepEqual2cmp(f)
+	// 		deepEqual2cmp(f)
 
-			showBuf(f)
+	// 		showBuf(f)
+	// 	}
+	// }
+
+	for _, file := range files {
+		fs := token.NewFileSet()
+		f, err := parser.ParseFile(fs, file, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		deepEqual2cmp(f)
+
+		makeFile(f, file)
+
+		// goimportsをapplyしてreflectとgo-cmpをimport処理する
+		// TODO: 自分でもできる。。。
+		err = exec.Command("goimports", "-w", "-l", file).Run()
+		if err != nil {
+			panic(err)
 		}
 	}
-
-	// for _, _ = range fileNames {
-
-	// }
-	// fs := token.NewFileSet()
-	// f, err := parser.ParseFile(fs, "testdata/src/a/a_test.go", nil, 0)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// deepEqual2cmp(f)
-
-	// showBuf(f)
-
-	// makeFile(f, "testdata/src/a/a_test_test.go")
-
-	// // goimportsをapplyしてreflectとgo-cmpをimport処理する
-	// // TODO: 自分でもできる。。。
-	// err = exec.Command("goimports", "-w", "-l", "testdata/src/a/a_test_test.go").Run()
-	// if err != nil {
-	// 	panic(err)
-	// }
 }
