@@ -211,17 +211,18 @@ func makeFile(n interface{}, fileName string) error {
 }
 
 // Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
-func Rewrite() {
-	fs := token.NewFileSet()
-	f, err := parser.ParseFile(fs, "testdata/src/a/a_test.go", nil, 0)
-	if err != nil {
-		panic(err)
+func Rewrite(fileNames []string) {
+	for _, fileName := range fileNames {
+		fs := token.NewFileSet()
+		f, err := parser.ParseFile(fs, fileName, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		deepEqual2cmp(f)
+
+		showBuf(f)
+
+		makeFile(f, fileName)
 	}
-
-	deepEqual2cmp(f)
-
-	showBuf(f)
-
-	// TODO: filenameを取得する
-	makeFile(f, "testdata/src/a/a_test_test.go")
 }
