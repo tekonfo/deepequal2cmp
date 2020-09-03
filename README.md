@@ -1,5 +1,5 @@
 # deepequal2cmp
-gotestsパッケージで自動生成されるDeeqequalをgo-cmpに自動変換する。
+gotestsパッケージで自動生成されるDeeqEqualをcmp.Diffに自動変換する。
 
 ## why
 社内プロジェクトで、go-cmpを利用することがルールづけられているが、手動でいちいち変換しなければならないため。
@@ -10,12 +10,21 @@ gotestsパッケージで自動生成されるDeeqequalをgo-cmpに自動変換�
 
 ことを実現する。
 
-## how to use
+## how to install
 ```
-de2cmp ./...
+go get -u github.com/google/go-cmp/cmp
+go get github.com/tekonfo/deepequal2cmp/cmd/deepequal2cmp
 ```
 
-を実行すると全ての*_test.goファイルが書き換えられる。
+## how to use
+
+```
+deepequal2cmp dirpath
+```
+
+を実行するとdir内の全ての*_test.goファイルが書き換えられる。
+
+引数が空だとカレントディレクトリで実行される
 
 ※ 現状は/cmd/deepequal2cmp/main.goをrunしてデバックしています
 
