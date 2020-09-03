@@ -193,7 +193,7 @@ func deepEqual2cmp(f *ast.File) error {
 	return nil
 }
 
-func makeFile(n interface{}, fileName string) error {
+func makeFile(n interface{}, fset *token.FileSet, fileName string) error {
 	f, err := os.Create(fileName)
 	if err != nil {
 		return err
@@ -203,7 +203,6 @@ func makeFile(n interface{}, fileName string) error {
 		f.Close()
 	}()
 
-	fset := token.NewFileSet()
 	err = format.Node(f, fset, n)
 	if err != nil {
 		return err
@@ -276,7 +275,7 @@ func Rewrite(dirPath string) {
 
 		deepEqual2cmp(f)
 
-		makeFile(f, file)
+		makeFile(f, fs, file)
 
 		// goimportsをapplyしてreflectとgo-cmpをimport処理する
 		// TODO: 自分でもできる。。。
