@@ -152,7 +152,9 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 // if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
 // 	fmt.Printf("f() differs: (-got +want)\n%s", diff)
 // }
-func deepEqual2cmp(f *ast.File) error {
+func deepEqual2cmp(f *ast.File) (bool, error) {
+	var isChanged bool
+
 	astutil.Apply(f, func(cr *astutil.Cursor) bool {
 		n := cr.Node()
 		ifStmt, ok := n.(*ast.IfStmt)
@@ -164,6 +166,8 @@ func deepEqual2cmp(f *ast.File) error {
 		if !isUsedDeepEqual {
 			return true
 		}
+
+		isChanged = true
 
 		arg1, arg2, err := getArg(ifStmt)
 		if err != nil {
@@ -190,7 +194,7 @@ func deepEqual2cmp(f *ast.File) error {
 		return true
 	}, nil)
 
-	return nil
+	return isChanged, nil
 }
 
 func makeFile(n interface{}, fset *token.FileSet, fileName string) error {
@@ -266,6 +270,8 @@ func Rewrite(dirPath string) {
 	// 	}
 	// }
 
+	fmt.Println("changed files:")
+
 	for _, file := range files {
 		fs := token.NewFileSet()
 		f, err := parser.ParseFile(fs, file, nil, 0)
@@ -273,7 +279,10 @@ func Rewrite(dirPath string) {
 			panic(err)
 		}
 
-		deepEqual2cmp(f)
+		isChanged, err := deepEqual2cmp(f)
+		if isChanged {
+			fmt.Println("\t", file)
+		}
 
 		makeFile(f, fs, file)
 
