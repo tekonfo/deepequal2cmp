@@ -1,28 +1,36 @@
 package main
 
 import (
-	"flag"
-	"fmt"
+	"errors"
+	"log"
+	"os"
 
 	"github.com/tekonfo/deepequal2cmp"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	flag.Parse()
+	app := &cli.App{
+		Name:  "deepequal2cmp",
+		Usage: "convert DeepEqual to cmp.Diff",
+		Action: func(c *cli.Context) error {
+			var dir string
+			if c.NArg() == 0 {
+				dir = "./"
+			} else if c.NArg() == 1 {
+				dir = c.Args().Get(0)
+			} else {
+				return errors.New("please 1 args! ")
+			}
 
-	args := flag.Args()
+			deepequal2cmp.Rewrite(dir)
 
-	var dir string
-
-	if len(args) == 0 {
-		// 指定がない場合はカレントディレクトリを参照する
-		dir = "./"
-	} else if len(args) == 1 {
-		dir = args[0]
-	} else {
-		fmt.Println("please fill in only one dir path!")
-		return
+			return nil
+		},
 	}
 
-	deepequal2cmp.Rewrite(dir)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
