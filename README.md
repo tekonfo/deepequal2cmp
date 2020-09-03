@@ -19,7 +19,7 @@ go get github.com/tekonfo/deepequal2cmp/cmd/deepequal2cmp
 ## how to use
 
 ```
-deepequal2cmp dirpath
+deepequal2cmp -d dirpath
 ```
 
 を実行するとdir内の全ての*_test.goファイルが書き換えられる。
