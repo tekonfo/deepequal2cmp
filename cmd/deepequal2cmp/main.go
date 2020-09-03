@@ -1,9 +1,10 @@
 package main
 
 import (
-	"deepequal2cmp"
 	"flag"
 	"fmt"
+
+	"github.com/tekonfo/deepequal2cmp"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 	} else if len(args) == 1 {
 		dir = args[0]
 	} else {
-		fmt.Println("please fill only one dir path!")
+		fmt.Println("please fill in only one dir path!")
 		return
 	}
 
