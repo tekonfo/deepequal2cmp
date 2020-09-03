@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"os"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
@@ -98,12 +99,12 @@ func bodyNode() *ast.BlockStmt {
 			&ast.ExprStmt{
 				X: &ast.CallExpr{
 					Fun: &ast.SelectorExpr{
-						X:   ast.NewIdent("fmt"),
-						Sel: ast.NewIdent("Printf"),
+						X:   ast.NewIdent("t"),
+						Sel: ast.NewIdent("Errorf"),
 					},
 					Args: []ast.Expr{
 						// TODO: ここのf()は動的な値なのであとで書き換える必要がある
-						&ast.BasicLit{Kind: token.STRING, Value: "\"f() differs: (-got +want)\\n%s\""},
+						&ast.BasicLit{Kind: token.STRING, Value: "\"differs: (-got +want)\\n%s\""},
 						ast.NewIdent("diff"),
 					},
 				},
@@ -147,8 +148,8 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 // if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
 // 	fmt.Printf("f() differs: (-got +want)\n%s", diff)
 // }
-func deepEqual2cmp(n ast.Node) error {
-	astutil.Apply(n, func(cr *astutil.Cursor) bool {
+func deepEqual2cmp(f *ast.File) error {
+	astutil.Apply(f, func(cr *astutil.Cursor) bool {
 		n := cr.Node()
 		ifStmt, ok := n.(*ast.IfStmt)
 		if !ok {
@@ -185,6 +186,27 @@ func deepEqual2cmp(n ast.Node) error {
 		return true
 	}, nil)
 
+	// applyの後にgo importsをかけたい
+
+	return nil
+}
+
+func makeFile(n interface{}, fileName string) error {
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		f.Close()
+	}()
+
+	fset := token.NewFileSet()
+	err = format.Node(f, fset, n)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -199,4 +221,7 @@ func Rewrite() {
 	deepEqual2cmp(f)
 
 	showBuf(f)
+
+	// TODO: filenameを取得する
+	makeFile(f, "testdata/src/a/a_test_test.go")
 }
