@@ -1,5 +1,5 @@
 # deepequal2cmp
-testingパッケージで自動生成されるDeeqequalをgo-cmpに自動変換する。
+gotestsパッケージで自動生成されるDeeqequalをgo-cmpに自動変換する。
 
 ## why
 社内プロジェクトで、go-cmpを利用することがルールづけられているが、手動でいちいち変換しなければならないため。
