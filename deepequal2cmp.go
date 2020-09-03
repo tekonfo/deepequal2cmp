@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"os/exec"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
@@ -186,8 +187,6 @@ func deepEqual2cmp(f *ast.File) error {
 		return true
 	}, nil)
 
-	// applyの後にgo importsをかけたい
-
 	return nil
 }
 
@@ -212,17 +211,25 @@ func makeFile(n interface{}, fileName string) error {
 
 // Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
 func Rewrite(fileNames []string) {
-	for _, fileName := range fileNames {
-		fs := token.NewFileSet()
-		f, err := parser.ParseFile(fs, fileName, nil, 0)
-		if err != nil {
-			panic(err)
-		}
+	// for _, _ = range fileNames {
 
-		deepEqual2cmp(f)
+	// }
+	fs := token.NewFileSet()
+	f, err := parser.ParseFile(fs, "testdata/src/a/a_test.go", nil, 0)
+	if err != nil {
+		panic(err)
+	}
 
-		showBuf(f)
+	deepEqual2cmp(f)
 
-		makeFile(f, fileName)
+	showBuf(f)
+
+	makeFile(f, "testdata/src/a/a_test_test.go")
+
+	// goimportsをapplyしてreflectとgo-cmpをimport処理する
+	// TODO: 自分でもできる。。。
+	err = exec.Command("goimports", "-w", "-l", "testdata/src/a/a_test_test.go").Run()
+	if err != nil {
+		panic(err)
 	}
 }
