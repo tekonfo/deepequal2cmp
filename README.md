@@ -16,3 +16,5 @@ de2cmp ./...
 ```
 
 を実行すると全ての*_test.goファイルが書き換えられる。
+
+※ 現状は/cmd/deepequal2cmp/main.goをrunしてデバックしています
