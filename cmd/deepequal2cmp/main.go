@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"log"
 	"os"
 
@@ -12,15 +11,16 @@ import (
 func main() {
 	app := &cli.App{
 		Name:  "deepequal2cmp",
-		Usage: "convert DeepEqual to cmp.Diff",
+		Usage: "convert DeepEqual to cmp.Diff to target test files",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "dir", Aliases: []string{"d"}},
+		},
 		Action: func(c *cli.Context) error {
 			var dir string
-			if c.NArg() == 0 {
+			if c.String("dir") == "" {
 				dir = "./"
-			} else if c.NArg() == 1 {
-				dir = c.Args().Get(0)
 			} else {
-				return errors.New("please 1 args! ")
+				dir = c.String("dir")
 			}
 
 			deepequal2cmp.Rewrite(dir)
