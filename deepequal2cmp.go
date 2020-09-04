@@ -50,46 +50,26 @@ func Rewrite(dirPath string) {
 	}
 }
 
-// test用: fileを書き換え、書き換えた後のファイルパスを返却
-func convertFile(file string) string {
-	fs := token.NewFileSet()
-	mode := parser.ParseComments
-	f, err := parser.ParseFile(fs, file, nil, mode)
-	if err != nil {
-		panic(err)
-	}
-
-	_, _ = deepEqual2cmp(f)
-
-	file = file[:len(file)-3] + "_test.go"
-
-	makeFile(f, fs, file)
-
-	err = exec.Command("goimports", "-w", "-l", file).Run()
-	if err != nil {
-		panic(err)
-	}
-
-	return file
-}
-
 func detectDeepEqual(n *ast.IfStmt) bool {
-	unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
-	if !ok {
-		return false
-	}
-	callExpr, ok := unaryExpr.X.(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	if selectorExpr.Sel.Name == "DeepEqual" {
+	var isDetect bool
+
+	ast.Inspect(n, func(n ast.Node) bool {
+		if n == nil {
+			return false
+		}
+
+		if selectorExpr, ok := n.(*ast.SelectorExpr); ok {
+			if selectorExpr.Sel.Name == "DeepEqual" {
+				isDetect = true
+				return false
+			}
+			return true
+		}
+
 		return true
-	}
-	return false
+	})
+
+	return isDetect
 }
 
 func detectErrorf(n *ast.CallExpr) bool {
@@ -196,7 +176,6 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 }
 
 // 実行する関数名を取得する
-// IfStmt内に含まれている場合は簡単
 // t.Errorf("ff() error = %v, wantErr %v", err, tt.wantErr)
 // この文の中のff()を取得する
 func getFuncName(node *ast.IfStmt) (string, error) {

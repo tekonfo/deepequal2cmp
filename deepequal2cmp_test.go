@@ -1,12 +1,38 @@
 package deepequal2cmp
 
 import (
+	"go/parser"
+	"go/token"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
+
+// test用: fileを書き換え、書き換えた後のファイルパスを返却
+func convertFile(file string) string {
+	fs := token.NewFileSet()
+	mode := parser.ParseComments
+	f, err := parser.ParseFile(fs, file, nil, mode)
+	if err != nil {
+		panic(err)
+	}
+
+	_, _ = deepEqual2cmp(f)
+
+	file = file[:len(file)-3] + "_test.go"
+
+	makeFile(f, fs, file)
+
+	err = exec.Command("goimports", "-w", "-l", file).Run()
+	if err != nil {
+		panic(err)
+	}
+
+	return file
+}
 
 func Test_convertFile(t *testing.T) {
 	type args struct {
