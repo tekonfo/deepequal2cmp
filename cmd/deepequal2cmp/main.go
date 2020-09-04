@@ -9,6 +9,11 @@ import (
 )
 
 func main() {
+
+	deepequal2cmp.ParcePackage("testdata/src/c/c_test.go")
+
+	return
+
 	app := &cli.App{
 		Name:  "deepequal2cmp",
 		Usage: "convert DeepEqual to cmp.Diff to target test files",
