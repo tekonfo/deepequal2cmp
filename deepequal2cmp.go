@@ -34,9 +34,11 @@ func Rewrite(dirPath string) {
 		}
 
 		isChanged, err := deepEqual2cmp(f)
-		if isChanged {
-			fmt.Println("\t", file)
+		if !isChanged {
+			continue
 		}
+
+		fmt.Println("\t", file)
 
 		makeFile(f, fs, file)
 
