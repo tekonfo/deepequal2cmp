@@ -27,7 +27,8 @@ func Rewrite(dirPath string) {
 
 	for _, file := range files {
 		fs := token.NewFileSet()
-		f, err := parser.ParseFile(fs, file, nil, 0)
+		mode := parser.ParseComments
+		f, err := parser.ParseFile(fs, file, nil, mode)
 		if err != nil {
 			panic(err)
 		}
@@ -57,7 +58,8 @@ func showDiff(dirPath string) {
 
 	for _, file := range files {
 		fs := token.NewFileSet()
-		f, err := parser.ParseFile(fs, file, nil, 0)
+		mode := parser.ParseComments
+		f, err := parser.ParseFile(fs, file, nil, mode)
 		if err != nil {
 			panic(err)
 		}
