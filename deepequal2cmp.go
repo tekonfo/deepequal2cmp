@@ -50,29 +50,27 @@ func Rewrite(dirPath string) {
 	}
 }
 
-func showDiff(dirPath string) {
-	fmt.Println(dirPath)
-
-	// ディレクトリ以下の全testファイルを取得する
-	files := findTestFiles(dirPath)
-
-	fmt.Println(files)
-
-	for _, file := range files {
-		fs := token.NewFileSet()
-		mode := parser.ParseComments
-		f, err := parser.ParseFile(fs, file, nil, mode)
-		if err != nil {
-			panic(err)
-		}
-
-		isChanged, err := deepEqual2cmp(f)
-		if isChanged {
-			fmt.Println("\t", file)
-		}
-
-		showBuf(f)
+// fileを書き換え、書き換えた後の文字列を返却
+func convertFile(file string) string {
+	fs := token.NewFileSet()
+	mode := parser.ParseComments
+	f, err := parser.ParseFile(fs, file, nil, mode)
+	if err != nil {
+		panic(err)
 	}
+
+	_, _ = deepEqual2cmp(f)
+
+	file = file[:len(file)-3] + "_test.go"
+
+	makeFile(f, fs, file)
+
+	err = exec.Command("goimports", "-w", "-l", file).Run()
+	if err != nil {
+		panic(err)
+	}
+
+	return file
 }
 
 func detectDeepEqual(n *ast.IfStmt) bool {
