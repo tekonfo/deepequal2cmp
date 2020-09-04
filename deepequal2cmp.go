@@ -50,7 +50,7 @@ func Rewrite(dirPath string) {
 	}
 }
 
-// fileを書き換え、書き換えた後の文字列を返却
+// test用: fileを書き換え、書き換えた後のファイルパスを返却
 func convertFile(file string) string {
 	fs := token.NewFileSet()
 	mode := parser.ParseComments
@@ -87,6 +87,17 @@ func detectDeepEqual(n *ast.IfStmt) bool {
 		return false
 	}
 	if selectorExpr.Sel.Name == "DeepEqual" {
+		return true
+	}
+	return false
+}
+
+func detectErrorf(n *ast.CallExpr) bool {
+	selectorExpr, ok := n.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	if selectorExpr.Sel.Name == "Errorf" {
 		return true
 	}
 	return false
@@ -134,7 +145,10 @@ func condNode() ast.Expr {
 }
 
 // fmt.Printf("f() differs: (-got +want)\n%s", diff)を作成
-func bodyNode() *ast.BlockStmt {
+func bodyNode(funcName string) *ast.BlockStmt {
+
+	bodyStr := "\"" + funcName + " differs: (-got +want)\\n%s\""
+
 	return &ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ExprStmt{
@@ -144,8 +158,7 @@ func bodyNode() *ast.BlockStmt {
 						Sel: ast.NewIdent("Errorf"),
 					},
 					Args: []ast.Expr{
-						// TODO: 関数名をいれる
-						&ast.BasicLit{Kind: token.STRING, Value: "\"differs: (-got +want)\\n%s\""},
+						&ast.BasicLit{Kind: token.STRING, Value: bodyStr},
 						ast.NewIdent("diff"),
 					},
 				},
@@ -182,7 +195,50 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 	return args[0], args[1], nil
 }
 
+// 実行する関数名を取得する
+// IfStmt内に含まれている場合は簡単
+// t.Errorf("ff() error = %v, wantErr %v", err, tt.wantErr)
+// この文の中のff()を取得する
 func getFuncName(node *ast.IfStmt) (string, error) {
+
+	stmts := node.Body.List
+
+	for _, stmt := range stmts {
+		exprStmt, ok := stmt.(*ast.ExprStmt)
+		if !ok {
+			continue
+		}
+		callExpr, ok := exprStmt.X.(*ast.CallExpr)
+		if !ok {
+			continue
+		}
+
+		selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+		if !ok {
+			continue
+		}
+		if selectorExpr.Sel.Name != "Errorf" {
+			continue
+		}
+
+		// get string from arg such as "\"f() = %v, want %v\""
+		arg := callExpr.Args[0]
+		basicLit, ok := arg.(*ast.BasicLit)
+		if !ok {
+			continue
+		}
+
+		// "\"f() = %v, want %v\""
+		argStr := basicLit.Value
+
+		// get "\"f()"
+		funcName := strings.Split(argStr, " ")[0]
+		// get "f()"
+		funcName = strings.Replace(funcName, "\"", "", -1)
+
+		return funcName, nil
+	}
+
 	return "", nil
 }
 
@@ -218,10 +274,15 @@ func deepEqual2cmp(f *ast.File) (bool, error) {
 
 		execF := execFuncNode(ifStmt)
 
+		funcName, err := getFuncName(ifStmt)
+		if err != nil {
+			return true
+		}
+
 		newIfStmt := &ast.IfStmt{
 			Init: initNode(arg1, arg2),
 			Cond: condNode(),
-			Body: bodyNode(),
+			Body: bodyNode(funcName),
 		}
 
 		cr.Replace(newIfStmt)

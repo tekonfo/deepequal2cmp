@@ -17,7 +17,7 @@ func Test_f(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := f()
 			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("differs: (-got +want)\n%s", diff)
+				t.Errorf("f() differs: (-got +want)\n%s", diff)
 			}
 
 		})
@@ -41,10 +41,10 @@ func Test_ff(t *testing.T) {
 				return
 			}
 			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("differs: (-got +want)\n%s", diff)
+				t.Errorf("ff() differs: (-got +want)\n%s", diff)
 			}
 			if diff := cmp.Diff(got1, tt.want1); diff != "" {
-				t.Errorf("differs: (-got +want)\n%s", diff)
+				t.Errorf("ff() differs: (-got +want)\n%s", diff)
 			}
 
 		})
