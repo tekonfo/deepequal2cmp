@@ -17,6 +17,60 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
+// Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
+func Rewrite(dirPath string) {
+
+	// ディレクトリ以下の全testファイルを取得する
+	files := findTestFiles(dirPath)
+
+	fmt.Println("changed files:")
+
+	for _, file := range files {
+		fs := token.NewFileSet()
+		f, err := parser.ParseFile(fs, file, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		isChanged, err := deepEqual2cmp(f)
+		if isChanged {
+			fmt.Println("\t", file)
+		}
+
+		makeFile(f, fs, file)
+
+		// goimportsをapplyしてreflectとgo-cmpをimport処理する
+		err = exec.Command("goimports", "-w", "-l", file).Run()
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func showDiff(dirPath string) {
+	fmt.Println(dirPath)
+
+	// ディレクトリ以下の全testファイルを取得する
+	files := findTestFiles(dirPath)
+
+	fmt.Println(files)
+
+	for _, file := range files {
+		fs := token.NewFileSet()
+		f, err := parser.ParseFile(fs, file, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+
+		isChanged, err := deepEqual2cmp(f)
+		if isChanged {
+			fmt.Println("\t", file)
+		}
+
+		showBuf(f)
+	}
+}
+
 func detectDeepEqual(n *ast.IfStmt) bool {
 	unaryExpr, ok := n.Cond.(*ast.UnaryExpr)
 	if !ok {
@@ -31,25 +85,6 @@ func detectDeepEqual(n *ast.IfStmt) bool {
 		return false
 	}
 	if selectorExpr.Sel.Name == "DeepEqual" {
-		return true
-	}
-	return false
-}
-
-func detectCmpDiff(n *ast.IfStmt) bool {
-	assignStmt, ok := n.Init.(*ast.AssignStmt)
-	if !ok {
-		return false
-	}
-	callExpr, ok := assignStmt.Rhs[0].(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	if selectorExpr.X.(*ast.Ident).Name == "cmp" && selectorExpr.Sel.Name == "Diff" {
 		return true
 	}
 	return false
@@ -107,7 +142,7 @@ func bodyNode() *ast.BlockStmt {
 						Sel: ast.NewIdent("Errorf"),
 					},
 					Args: []ast.Expr{
-						// TODO: ここのf()は動的な値なのであとで書き換える必要がある
+						// TODO: 関数名をいれる
 						&ast.BasicLit{Kind: token.STRING, Value: "\"differs: (-got +want)\\n%s\""},
 						ast.NewIdent("diff"),
 					},
@@ -118,13 +153,13 @@ func bodyNode() *ast.BlockStmt {
 }
 
 // got = f(); はifStmtの前に記述しなければならないので、その箇所を取得
-func execFuncNode(node *ast.IfStmt) (ast.Node, error) {
+func execFuncNode(node *ast.IfStmt) ast.Node {
 	assignStmt, ok := node.Init.(*ast.AssignStmt)
 	if !ok {
-		return nil, errors.New("cast error")
+		return nil
 	}
 
-	return assignStmt, nil
+	return assignStmt
 }
 
 // !reflect.DeepEqual(m1, m2) で利用されているm1, m2を取得する
@@ -143,6 +178,10 @@ func getArg(node *ast.IfStmt) (ast.Node, ast.Node, error) {
 	}
 
 	return args[0], args[1], nil
+}
+
+func getFuncName(node *ast.IfStmt) (string, error) {
+	return "", nil
 }
 
 // if _ = f(); !reflect.DeepEqual(m1, m2) { ← これを
@@ -171,14 +210,11 @@ func deepEqual2cmp(f *ast.File) (bool, error) {
 
 		arg1, arg2, err := getArg(ifStmt)
 		if err != nil {
-			panic(err)
+			fmt.Printf("getArg error: %s", err)
+			return true
 		}
 
-		s, err := execFuncNode(ifStmt)
-		// TODO: error処理
-		if err != nil {
-
-		}
+		execF := execFuncNode(ifStmt)
 
 		newIfStmt := &ast.IfStmt{
 			Init: initNode(arg1, arg2),
@@ -187,8 +223,8 @@ func deepEqual2cmp(f *ast.File) (bool, error) {
 		}
 
 		cr.Replace(newIfStmt)
-		if s != nil {
-			cr.InsertBefore(s)
+		if execF != nil {
+			cr.InsertBefore(execF)
 		}
 
 		return true
@@ -239,12 +275,7 @@ func findTestFiles(dir string) []string {
 	return paths
 }
 
-// Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
-func Rewrite(dirPath string) {
-
-	// ディレクトリ以下の全testファイルを取得する
-	files := findTestFiles(dirPath)
-
+func parsePackages() {
 	// mode := packages.NeedSyntax // 構文解析まで
 	// cfg := &packages.Config{Mode: mode, Tests: true}
 	// pkgs, err := packages.Load(cfg, files...)
@@ -269,28 +300,4 @@ func Rewrite(dirPath string) {
 	// 		showBuf(f)
 	// 	}
 	// }
-
-	fmt.Println("changed files:")
-
-	for _, file := range files {
-		fs := token.NewFileSet()
-		f, err := parser.ParseFile(fs, file, nil, 0)
-		if err != nil {
-			panic(err)
-		}
-
-		isChanged, err := deepEqual2cmp(f)
-		if isChanged {
-			fmt.Println("\t", file)
-		}
-
-		makeFile(f, fs, file)
-
-		// goimportsをapplyしてreflectとgo-cmpをimport処理する
-		// TODO: 自分でもできる。。。
-		err = exec.Command("goimports", "-w", "-l", file).Run()
-		if err != nil {
-			panic(err)
-		}
-	}
 }
