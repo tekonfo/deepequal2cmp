@@ -316,30 +316,3 @@ func findTestFiles(dir string) []string {
 
 	return paths
 }
-
-func parsePackages() {
-	// mode := packages.NeedSyntax // 構文解析まで
-	// cfg := &packages.Config{Mode: mode, Tests: true}
-	// pkgs, err := packages.Load(cfg, files...)
-	// if err != nil { /* エラー処理 */
-	// 	fmt.Println("error")
-	// 	panic(err)
-	// }
-	// if packages.PrintErrors(pkgs) > 0 { /* エラー処理 */
-	// 	fmt.Println("error error")
-	// 	panic("error")
-	// }
-
-	// for _, pkg := range pkgs {
-	// 	for _, f := range pkg.Syntax {
-	// 		// mainパッケージは除外
-	// 		if f.Name.Name == "main" {
-	// 			continue
-	// 		}
-
-	// 		deepEqual2cmp(f)
-
-	// 		showBuf(f)
-	// 	}
-	// }
-}
