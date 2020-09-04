@@ -40,3 +40,4 @@ https://github.com/cweill/gotests/blob/develop/internal/render/templates/functio
 - 返り値が一つのみで、基本系でない場合
 
 ## 工夫点
+- cmp.AllowUnexported(v1, v2)を自動で付与する
