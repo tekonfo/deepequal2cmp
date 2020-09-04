@@ -33,5 +33,8 @@ jobs:
     - name: Build
       run: go build -v .
 
+    - name: import goimports
+      run: go get golang.org/x/tools/cmd/goimports
+
     - name: Test
       run: go test -v .
