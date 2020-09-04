@@ -1,6 +1,9 @@
 # deepequal2cmp
 gotestsパッケージで自動生成されるDeeqEqualをcmp.Diffに自動変換する。
 
+## demo
+![output](https://user-images.githubusercontent.com/31615118/92195271-7ea65300-eea7-11ea-9a86-7e0768719eba.gif)
+
 ## why
 社内プロジェクトで、go-cmpを利用することがルールづけられているが、手動でいちいち変換しなければならないため。
 これを利用することで
