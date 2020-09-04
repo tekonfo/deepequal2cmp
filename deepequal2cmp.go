@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/packages"
 )
 
 // Rewrite is 外部から呼び出され、DeepEqualをcmp.Diffに書き換える
@@ -33,7 +35,9 @@ func Rewrite(dirPath string) {
 			panic(err)
 		}
 
-		isChanged, err := deepEqual2cmp(f)
+		pkg := ParcePackage(file)
+
+		isChanged, err := deepEqual2cmp(f, pkg)
 		if !isChanged {
 			continue
 		}
@@ -228,7 +232,7 @@ func getFuncName(node *ast.IfStmt) (string, error) {
 // if diff := cmp.Diff(m1, m2); diff != "" { ← これにする
 // 	fmt.Printf("f() differs: (-got +want)\n%s", diff)
 // }
-func deepEqual2cmp(f *ast.File) (bool, error) {
+func deepEqual2cmp(f *ast.File, pkg *packages.Package) (bool, error) {
 	var isChanged bool
 
 	astutil.Apply(f, func(cr *astutil.Cursor) bool {
@@ -249,6 +253,15 @@ func deepEqual2cmp(f *ast.File) (bool, error) {
 		if err != nil {
 			fmt.Printf("getArg error: %s", err)
 			return true
+		}
+
+		target := arg1.(*ast.Ident)
+		fmt.Println(target)
+		str := findTypesStruct(pkg, target)
+		if str != nil {
+			fmt.Println(isStructHasUnExportedField(pkg, str))
+		} else {
+			fmt.Println(str)
 		}
 
 		execF := execFuncNode(ifStmt)
@@ -291,6 +304,56 @@ func makeFile(n interface{}, fset *token.FileSet, fileName string) error {
 	}
 
 	return nil
+}
+
+func ParcePackage(packageName string) *packages.Package {
+
+	fmt.Println(packageName)
+
+	mode := packages.LoadTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedFiles
+	cfg := &packages.Config{Mode: mode, Tests: true}
+	pkgs, err := packages.Load(cfg, packageName)
+	fmt.Println(pkgs)
+	if err != nil { /* エラー処理 */
+	}
+	if packages.PrintErrors(pkgs) > 0 { /* エラー処理 */
+		panic("err")
+	}
+	for _, pkg := range pkgs {
+		for _, f := range pkg.Syntax {
+			ast.Print(pkg.Fset, f)
+		}
+	}
+	return pkgs[0]
+}
+
+func findTypesStruct(pkg *packages.Package, ident *ast.Ident) *types.Struct {
+
+	fmt.Println(pkg.TypesInfo.Defs)
+
+	obj, ok := pkg.TypesInfo.Defs[ident]
+	if !ok {
+		fmt.Println(obj)
+		return nil
+	}
+
+	if a, ok := obj.Type().Underlying().(*types.Struct); ok {
+		return a
+	}
+
+	return nil
+}
+
+func isStructHasUnExportedField(pkg *packages.Package, str *types.Struct) bool {
+
+	for i := 0; i < str.NumFields(); i++ {
+		f := str.Field(i)
+		if f.Exported() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func findTestFiles(dir string) []string {
